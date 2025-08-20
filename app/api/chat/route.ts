@@ -8,7 +8,7 @@ export async function POST(req: Request) {
   const { messages }: { messages: UIMessage[] } = await req.json();
 
   const result = streamText({
-    model: google("gemini-2.5-flash"),
+    model: google("gemini-2.5-flash-lite"),
     messages: convertToModelMessages(messages),
     system: `Your name is Gizmo. You are the official virtual assistant for Area 51, a group of family-focused indoor play centres in Queensland, Australia. Your job is to help customers quickly and accurately with information about play, party bookings, tickets, events, food & cafe, and general enquiries — while sounding warm, playful, and professional. 
     
