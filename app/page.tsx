@@ -16,12 +16,108 @@ import { useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import { Loader } from "@/components/ai-elements/loader";
 import ReactMarkdown from "react-markdown";
-import { Suggestions, Suggestion } from "@/components/ai-elements/suggestion";
+import { Button } from "@/components/ui/button";
+import { ExternalLink } from "lucide-react";
+
+// Custom component to handle our special button syntax
+const MarkdownWithButtons = ({
+  children,
+  onConversationChoice,
+  onLinkClick,
+}: {
+  children: string;
+  onConversationChoice: (choice: string) => void;
+  onLinkClick: (url: string) => void;
+}) => {
+  // Extract and remove conversation choices from markdown
+  const conversationChoiceRegex = /\{\{choice:([^}]+)\}\}/g;
+  const linkButtonRegex = /\{\{link:([^|]+)\|([^}]+)\}\}/g;
+
+  const conversationChoices: string[] = [];
+  const linkButtons: { url: string; label: string }[] = [];
+
+  // Extract conversation choices
+  let match;
+  while ((match = conversationChoiceRegex.exec(children)) !== null) {
+    conversationChoices.push(match[1].trim());
+  }
+
+  // Extract link buttons
+  while ((match = linkButtonRegex.exec(children)) !== null) {
+    linkButtons.push({
+      url: match[1].trim(),
+      label: match[2].trim(),
+    });
+  }
+
+  // Remove the special syntax from markdown content
+  const cleanMarkdown = children
+    .replace(conversationChoiceRegex, "")
+    .replace(linkButtonRegex, "")
+    .replace(/\n\s*\n\s*\n/g, "\n\n") // Clean up extra newlines
+    .trim();
+
+  return (
+    <div>
+      <div className="prose">
+        <ReactMarkdown>{cleanMarkdown}</ReactMarkdown>
+      </div>
+
+      {/* Render conversation choice buttons */}
+      {conversationChoices.length > 0 && (
+        <div className="flex flex-wrap gap-2 mt-4">
+          {conversationChoices.map((choice, index) => (
+            <Button
+              key={index}
+              variant="outline"
+              size="sm"
+              onClick={() => onConversationChoice(choice)}
+              className="text-sm"
+            >
+              {choice}
+            </Button>
+          ))}
+        </div>
+      )}
+
+      {/* Render link buttons */}
+      {linkButtons.length > 0 && (
+        <div className="flex flex-wrap gap-2 mt-4">
+          {linkButtons.map((button, index) => (
+            <Button
+              key={index}
+              variant="default"
+              size="sm"
+              onClick={() => onLinkClick(button.url)}
+              className="text-sm"
+            >
+              <ExternalLink className="w-3 h-3 mr-1" />
+              {button.label}
+            </Button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const ChatBotDemo = () => {
   const [input, setInput] = useState("");
-  const { messages, sendMessage, status } = useChat();
-
+  const { messages, sendMessage, status } = useChat({
+    messages: [
+      {
+        id: "welcome",
+        role: "assistant",
+        parts: [
+          {
+            type: "text",
+            text: "Hello explorer! Gizmo here, ready to help you find some out-of-this-world fun!🚀\n\nLet's start by choosing your Area 51 venue, or ask me about your questions!\n\n{{choice:Underwood}}\n{{choice:Mt Gravatt}}\n{{choice:Redcliffe}}\n{{choice:Helensvale}}",
+          },
+        ],
+      },
+    ],
+  });
+  console.log(messages);
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (input.trim()) {
@@ -30,31 +126,14 @@ const ChatBotDemo = () => {
     }
   };
 
-  const extractSuggestions = (text: string): string[] => {
-    // Capture [Choice] that is NOT a markdown link [label](url)
-    const bracketed = [...text.matchAll(/\[([^\]]+)\](?!\()/g)].map((m) =>
-      m[1].trim()
-    );
-    if (bracketed.length > 0) {
-      return Array.from(new Set(bracketed)).slice(0, 6);
-    }
-    const bulletLines = text
-      .split("\n")
-      .map((l) => l.trim())
-      .filter((l) => l.startsWith("- ") && l.length > 2)
-      .map((l) => l.slice(2).trim());
-    return Array.from(new Set(bulletLines)).slice(0, 6);
+  const handleConversationChoice = (choice: string) => {
+    sendMessage({ text: choice });
   };
 
-  const stripSuggestionBrackets = (text: string) => {
-    // Remove standalone [Choice] segments entirely (not markdown links [label](url))
-    // Also collapse extra spaces left behind.
-    return text
-      .replace(/\s*\[([^\]]+)\](?!\()\s*/g, " ")
-      .replace(/[ ]{2,}/g, " ")
-      .replace(/\n[ \t]+/g, "\n")
-      .trim();
+  const handleLinkClick = (url: string) => {
+    window.open(url, "_blank", "noopener,noreferrer");
   };
+
   return (
     <div className="max-w-4xl mx-auto p-6 relative size-full h-screen">
       <div className="flex flex-col h-full">
@@ -68,41 +147,18 @@ const ChatBotDemo = () => {
                       switch (part.type) {
                         case "text":
                           return (
-                            <div className="prose" key={`${message.id}-${i}`}>
-                              <ReactMarkdown>
-                                {stripSuggestionBrackets(part.text)}
-                              </ReactMarkdown>
-                            </div>
+                            <MarkdownWithButtons
+                              key={`${message.id}-${i}`}
+                              onConversationChoice={handleConversationChoice}
+                              onLinkClick={handleLinkClick}
+                            >
+                              {part.text}
+                            </MarkdownWithButtons>
                           );
-
                         default:
                           return null;
                       }
                     })}
-                    {message.role === "assistant" &&
-                      (() => {
-                        const fullText = message.parts
-                          .filter((p) => p.type === "text")
-                          .map((p) => ("text" in p ? p.text : ""))
-                          .join("\n");
-                        const suggestions = extractSuggestions(fullText);
-                        if (!suggestions.length) return null;
-                        return (
-                          <div className="mt-2">
-                            <Suggestions>
-                              {suggestions.map((s) => (
-                                <Suggestion
-                                  key={s}
-                                  suggestion={s}
-                                  onClick={(value) =>
-                                    sendMessage({ text: value })
-                                  }
-                                />
-                              ))}
-                            </Suggestions>
-                          </div>
-                        );
-                      })()}
                   </MessageContent>
                 </Message>
               </div>
