@@ -72,7 +72,7 @@ const MarkdownWithButtons = ({
               variant="outline"
               size="sm"
               onClick={() => onConversationChoice(choice)}
-              className="text-sm"
+              className="text-sm rounded-full shadow-none"
             >
               {choice}
             </Button>
@@ -89,7 +89,7 @@ const MarkdownWithButtons = ({
               variant="default"
               size="sm"
               onClick={() => onLinkClick(button.url)}
-              className="text-sm"
+              className="text-sm rounded-full shadow-none"
             >
               <ExternalLink className="w-3 h-3 mr-1" />
               {button.label}
