@@ -1,6 +1,6 @@
 "use client";
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import type { UIMessage } from "ai";
 import type { HTMLAttributes } from "react";
@@ -17,7 +17,7 @@ export const Message = ({
 }: MessageProps) => (
   <div
     className={cn(
-      "group flex w-full items-end justify-end gap-2 py-4",
+      "group flex w-full items-end justify-end py-4",
       from === "user" ? "is-user" : "is-assistant flex-row-reverse justify-end",
       "[&>div]:max-w-[80%]",
       className
@@ -26,8 +26,9 @@ export const Message = ({
   >
     {children}
     {from !== "user" ? (
-      <Avatar aria-label="AI">
-        <AvatarFallback>AI</AvatarFallback>
+      <Avatar aria-label="Gizmo" className="w-10 h-10">
+        <AvatarFallback>G</AvatarFallback>
+        <AvatarImage src="/gizmo-ai-avatar2.png" alt="Gizmo" />
       </Avatar>
     ) : null}
   </div>
@@ -42,7 +43,7 @@ export const MessageContent = ({
 }: MessageContentProps) => (
   <div
     className={cn(
-      "flex flex-col gap-2 overflow-hidden rounded-lg px-4 py-3 text-foreground text-sm",
+      "flex flex-col gap-2 overflow-hidden rounded-sm px-4 py-3 text-foreground text-sm",
       "group-[.is-user]:bg-secondary group-[.is-user]:text-foreground",
       "group-[.is-assistant]:bg-secondary/30 group-[.is-assistant]:text-foreground",
       className
