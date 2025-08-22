@@ -1,3 +1,4 @@
+"use client";
 import { useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import {
@@ -8,7 +9,7 @@ import {
 import { Message, MessageContent } from "./ai-elements/message";
 import ReactMarkdown from "react-markdown";
 import { Button } from "./ui/button";
-import { ExternalLink, Loader } from "lucide-react";
+import { ExternalLink, Loader, MessageSquareIcon } from "lucide-react";
 import {
   PromptInput,
   PromptInputSubmit,
@@ -55,7 +56,7 @@ const MarkdownWithButtons = ({
 
   return (
     <div>
-      <div className="prose">
+      <div className="prose text-sm">
         <ReactMarkdown>{cleanMarkdown}</ReactMarkdown>
       </div>
 
@@ -68,7 +69,7 @@ const MarkdownWithButtons = ({
               variant="outline"
               size="sm"
               onClick={() => onConversationChoice(choice)}
-              className="text-sm rounded-full shadow-none"
+              className="text-xs rounded-full shadow-none"
             >
               {choice}
             </Button>
@@ -85,7 +86,7 @@ const MarkdownWithButtons = ({
               variant="default"
               size="sm"
               onClick={() => onLinkClick(button.url)}
-              className="text-sm rounded-full shadow-none"
+              className="text-xs rounded-full shadow-none"
             >
               <ExternalLink className="w-3 h-3 mr-1" />
               {button.label}
@@ -97,7 +98,20 @@ const MarkdownWithButtons = ({
   );
 };
 
-const ChatBotDemo = () => {
+export const ChatBotTrigger = () => {
+  const [isOpen, setIsOpen] = useState(false);
+  return (
+    <Button
+      size="sm"
+      className="fixed bottom-5 right-5 rounded-full p-4 h-fit"
+      onClick={() => setIsOpen(!isOpen)}
+    >
+      <MessageSquareIcon className="size-5" />
+    </Button>
+  );
+};
+
+const ChatBot = () => {
   const [input, setInput] = useState("");
   const { messages, sendMessage, status } = useChat({
     messages: [
@@ -113,7 +127,6 @@ const ChatBotDemo = () => {
       },
     ],
   });
-  console.log(messages);
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (input.trim()) {
@@ -131,56 +144,65 @@ const ChatBotDemo = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-6 relative size-full h-screen">
-      <div className="flex flex-col h-full">
-        <Conversation className="h-full">
-          <ConversationContent>
-            {messages.map((message) => (
-              <div key={message.id}>
-                <Message from={message.role} key={message.id}>
-                  <MessageContent>
-                    {message.parts.map((part, i) => {
-                      switch (part.type) {
-                        case "text":
-                          return (
-                            <MarkdownWithButtons
-                              key={`${message.id}-${i}`}
-                              onConversationChoice={handleConversationChoice}
-                              onLinkClick={handleLinkClick}
-                            >
-                              {part.text}
-                            </MarkdownWithButtons>
-                          );
-                        default:
-                          return null;
-                      }
-                    })}
-                  </MessageContent>
-                </Message>
-              </div>
-            ))}
-            {status === "submitted" && (
-              <Message role="assistant" from="assistant">
+    <div className="max-w-90 mx-auto relative w-full h-110 justify-between flex flex-col rounded-sm border">
+      <Conversation className="overflow-hidden">
+        <ConversationContent className="px-2">
+          {messages.map((message) => (
+            <div key={message.id}>
+              <Message from={message.role} key={message.id}>
                 <MessageContent>
-                  <Loader />
+                  {message.parts.map((part, i) => {
+                    switch (part.type) {
+                      case "text":
+                        return (
+                          <MarkdownWithButtons
+                            key={`${message.id}-${i}`}
+                            onConversationChoice={handleConversationChoice}
+                            onLinkClick={handleLinkClick}
+                          >
+                            {part.text}
+                          </MarkdownWithButtons>
+                        );
+                      default:
+                        return null;
+                    }
+                  })}
                 </MessageContent>
               </Message>
-            )}
-          </ConversationContent>
-          <ConversationScrollButton />
-        </Conversation>
-        <PromptInput onSubmit={handleSubmit} className="mt-4">
-          <PromptInputTextarea
-            onChange={(e) => setInput(e.target.value)}
-            value={input}
-          />
-          <PromptInputToolbar>
-            <PromptInputSubmit disabled={!input} status={status} />
-          </PromptInputToolbar>
-        </PromptInput>
-      </div>
+            </div>
+          ))}
+          {status === "submitted" && (
+            <Message role="assistant" from="assistant">
+              <MessageContent>
+                <div className="flex gap-1 justify-center items-center py-2 px-1">
+                  <span className="sr-only">Loading...</span>
+                  <div className="h-2 w-2 bg-neutral-300 rounded-full animate-bounce"></div>
+                  <div className="h-2 w-2 bg-neutral-300 rounded-full animate-bounce delay-150"></div>
+                  <div className="h-2 w-2 bg-neutral-300 rounded-full animate-bounce delay-300"></div>
+                </div>
+              </MessageContent>
+            </Message>
+          )}
+        </ConversationContent>
+        <ConversationScrollButton />
+      </Conversation>
+      <PromptInput
+        onSubmit={handleSubmit}
+        className="flex items-center px-3 py-4 gap-2 border-t"
+      >
+        <PromptInputTextarea
+          onChange={(e) => setInput(e.target.value)}
+          value={input}
+          className="pl-2"
+        />
+        <PromptInputSubmit
+          disabled={!input}
+          status={status}
+          className="rounded-sm self-start"
+        />
+      </PromptInput>
     </div>
   );
 };
 
-export default ChatBotDemo;
+export default ChatBot;
