@@ -1,6 +1,4 @@
 import ChatBotWrapper from "@/components/Chatbot";
-import { Button } from "@/components/ui/button";
-import { MessageSquareIcon } from "lucide-react";
 import React from "react";
 
 const page = () => {

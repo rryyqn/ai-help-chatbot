@@ -131,6 +131,14 @@ const ChatBotWrapper = () => {
   );
 };
 
+type ErrorMessage = {
+  error: Error;
+  message: string;
+  status: number;
+  statusCode: number;
+  response: Response;
+};
+
 export default ChatBotWrapper;
 
 export const ChatBot = ({ onClose }: { onClose: () => void }) => {
@@ -161,8 +169,8 @@ export const ChatBot = ({ onClose }: { onClose: () => void }) => {
 
       // Multiple ways to detect rate limiting
       const isRateLimit =
-        (error as any).status === 429 ||
-        (error as any).statusCode === 429 ||
+        (error as unknown as ErrorMessage).status === 429 ||
+        (error as unknown as ErrorMessage).statusCode === 429 ||
         error.message?.includes("429") ||
         error.message?.toLowerCase().includes("rate limit") ||
         error.message?.toLowerCase().includes("too many requests");
@@ -217,10 +225,12 @@ export const ChatBot = ({ onClose }: { onClose: () => void }) => {
       // Handle errors that might not be caught by onError
       console.log("Direct send error:", error);
       const isRateLimit =
-        (error as any).status === 429 ||
-        (error as any).response?.status === 429 ||
-        (error as any).message?.includes("429") ||
-        (error as any).message?.toLowerCase().includes("rate limit");
+        (error as unknown as ErrorMessage).status === 429 ||
+        (error as unknown as ErrorMessage).response?.status === 429 ||
+        (error as unknown as ErrorMessage).message?.includes("429") ||
+        (error as unknown as ErrorMessage).message
+          ?.toLowerCase()
+          .includes("rate limit");
 
       if (isRateLimit) {
         setIsRateLimited(true);
