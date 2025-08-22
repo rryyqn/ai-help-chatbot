@@ -1,15 +1,25 @@
-import ChatBot, { ChatBotTrigger } from "@/components/Chatbot";
+import ChatBotWrapper from "@/components/Chatbot";
 import { Button } from "@/components/ui/button";
 import { MessageSquareIcon } from "lucide-react";
 import React from "react";
 
 const page = () => {
   return (
-    <div className="w-full relative">
-      Home
-      <ChatBotTrigger />
-      <ChatBot />
-    </div>
+    <main className="m-4">
+      <div className="flex flex-col gap-2">
+        <h1 className="text-3xl font-bold">AI Business Website Chatbot</h1>
+        <p>
+          This chatbot was built using Vercel's AI SDK, powered by Gemini 2.5
+          Flash Lite.
+        </p>
+        <p>
+          It was trained on data based on Area 51 indoor playgrounds to show how
+          AI can be used in business websites to guide users.
+        </p>
+        <p>It features smart choices and links in the conversations.</p>
+      </div>
+      <ChatBotWrapper />
+    </main>
   );
 };
 

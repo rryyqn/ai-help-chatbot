@@ -9,7 +9,15 @@ import {
 import { Message, MessageContent } from "./ai-elements/message";
 import ReactMarkdown from "react-markdown";
 import { Button } from "./ui/button";
-import { ExternalLink, Loader, MessageSquareIcon } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
+import {
+  ExternalLink,
+  Loader,
+  MessageSquareIcon,
+  RefreshCw,
+  RotateCw,
+  X,
+} from "lucide-react";
 import {
   PromptInput,
   PromptInputSubmit,
@@ -98,22 +106,29 @@ const MarkdownWithButtons = ({
   );
 };
 
-export const ChatBotTrigger = () => {
+const ChatBotWrapper = () => {
   const [isOpen, setIsOpen] = useState(false);
   return (
-    <Button
-      size="sm"
-      className="fixed bottom-5 right-5 rounded-full p-4 h-fit"
-      onClick={() => setIsOpen(!isOpen)}
-    >
-      <MessageSquareIcon className="size-5" />
-    </Button>
+    <div className="">
+      <Button
+        size="sm"
+        className="fixed bottom-5 right-5 rounded-full p-4 h-fit"
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        <MessageSquareIcon className="size-5" />
+      </Button>
+      <AnimatePresence mode="wait">
+        {isOpen && <ChatBot key="chatbot" onClose={() => setIsOpen(false)} />}
+      </AnimatePresence>
+    </div>
   );
 };
 
-const ChatBot = () => {
+export default ChatBotWrapper;
+
+export const ChatBot = ({ onClose }: { onClose: () => void }) => {
   const [input, setInput] = useState("");
-  const { messages, sendMessage, status } = useChat({
+  const { messages, sendMessage, setMessages, status } = useChat({
     messages: [
       {
         id: "welcome",
@@ -143,8 +158,49 @@ const ChatBot = () => {
     window.open(url, "_blank", "noopener,noreferrer");
   };
 
+  const clearMessages = () => {
+    setMessages([
+      {
+        id: "welcome",
+        role: "assistant",
+        parts: [
+          {
+            type: "text",
+            text: "Hello explorer! Gizmo here, ready to help you find some out-of-this-world fun!🚀\n\nLet's start by choosing your Area 51 venue, or ask me about your questions!\n\n{{choice:Underwood}}\n{{choice:Mt Gravatt}}\n{{choice:Redcliffe}}\n{{choice:Helensvale}}",
+          },
+        ],
+      },
+    ]);
+  };
+
   return (
-    <div className="max-w-90 mx-auto relative w-full h-110 justify-between flex flex-col rounded-sm border">
+    <motion.div
+      initial={{ opacity: 0, scale: 0.8 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.8 }}
+      transition={{ type: "spring", stiffness: 400, damping: 30 }}
+      className={`
+        justify-between flex flex-col
+        fixed z-20 bg-white
+        
+        /* Mobile: Full screen */
+        inset-0 w-screen h-screen rounded-none border-0
+        
+        /* Desktop: Bottom right panel */
+        md:max-w-100 md:w-full md:h-110 md:bottom-20 md:right-4 md:rounded-sm md:border md:inset-auto
+      `}
+    >
+      <div className="px-1 py-2 flex flex-row justify-between items-center">
+        <p className="font-bold pl-4">Area 51 Gizmo AI Assistant</p>
+        <div>
+          <Button onClick={clearMessages} size="icon" variant="ghost">
+            <RotateCw />
+          </Button>
+          <Button onClick={onClose} size="icon" variant="ghost">
+            <X />
+          </Button>
+        </div>
+      </div>
       <Conversation className="overflow-hidden">
         <ConversationContent className="px-2">
           {messages.map((message) => (
@@ -188,12 +244,12 @@ const ChatBot = () => {
       </Conversation>
       <PromptInput
         onSubmit={handleSubmit}
-        className="flex items-center px-3 py-4 gap-2 border-t"
+        className="flex items-center py-3 px-4 gap-2 border-t"
       >
         <PromptInputTextarea
           onChange={(e) => setInput(e.target.value)}
           value={input}
-          className="pl-2"
+          className=""
         />
         <PromptInputSubmit
           disabled={!input}
@@ -201,8 +257,6 @@ const ChatBot = () => {
           className="rounded-sm self-start"
         />
       </PromptInput>
-    </div>
+    </motion.div>
   );
 };
-
-export default ChatBot;

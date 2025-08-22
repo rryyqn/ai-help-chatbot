@@ -24,6 +24,7 @@
     "clsx": "^2.1.1",
     "embla-carousel-react": "^8.6.0",
     "lucide-react": "^0.540.0",
+    "motion": "^12.23.12",
     "next": "15.4.7",
     "react": "19.1.1",
     "react-dom": "19.1.1",
