@@ -1,36 +1,87 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AI Chatbot with Arcjet Protection
 
-## Getting Started
+A Next.js AI chatbot application with advanced security features powered by Arcjet for rate limiting and bot protection.
 
-First, run the development server:
+## Features
+
+- 🤖 AI-powered chat interface using Google's Gemini model
+- 🛡️ **Arcjet-powered security** with rate limiting and bot protection
+- 🔒 CSRF protection and content validation
+- 📱 Responsive UI with modern design
+- ⚡ Real-time streaming responses
+
+## Security Features
+
+This application uses [Arcjet](https://arcjet.com) for comprehensive API protection:
+
+- **Rate Limiting**: Sliding window and token bucket algorithms
+- **Bot Protection**: Advanced bot detection with configurable allow/deny lists
+- **Shield WAF**: Protection against common web attacks
+- **Real-time Monitoring**: Detailed logging and analytics
+
+## Environment Variables
+
+Create a `.env.local` file with the following variables:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# Google AI SDK
+GOOGLE_GENERATIVE_AI_API_KEY=your_google_api_key
+
+# Arcjet (Required for rate limiting and bot protection)
+ARCJET_KEY=your_arcjet_site_key
+
+# App Configuration
+NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Getting Arcjet Key
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. Sign up at [https://app.arcjet.com](https://app.arcjet.com)
+2. Create a new site
+3. Copy your site key to `ARCJET_KEY`
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Installation
 
-## Learn More
+```bash
+# Install dependencies
+pnpm install
 
-To learn more about Next.js, take a look at the following resources:
+# Run development server
+pnpm dev
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Rate Limiting Configuration
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+The application uses multiple rate limiting strategies:
 
-## Deploy on Vercel
+- **Sliding Window**: 8 requests per 30 seconds
+- **Token Bucket**: 10 tokens capacity, 2 tokens refill per 10 seconds
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Bot Protection
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Arcjet automatically detects and blocks:
+- Automated bots and scrapers
+- Malicious user agents
+- Suspicious request patterns
+
+Search engine bots (Google, Bing) are allowed by default.
+
+## API Endpoints
+
+- `POST /api/chat` - Main chat endpoint with Arcjet protection
+
+## Testing
+
+Test the rate limiting with curl:
+
+```bash
+## This should return 403 (bot detected)
+curl -v -H "Content-Type: application/json" \
+  -H "Referer: http://localhost:3000" \
+  -d '{"messages":[]}' \
+  http://localhost:3000/api/chat
+```
+
+## Deployment
+
+The application is ready for deployment on Vercel, Netlify, or any Next.js-compatible platform. Make sure to set all required environment variables in your deployment environment.
