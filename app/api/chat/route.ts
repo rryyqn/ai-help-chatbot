@@ -1,28 +1,10 @@
 import { google } from "@ai-sdk/google";
 import { streamText, UIMessage, convertToModelMessages } from "ai";
-import { chatRateLimit } from "@/lib/rate-limit";
+import { aj, getRateLimitHeaders } from "@/lib/arcjet";
 import { headers } from "next/headers";
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
-
-// Simple bot detection
-const detectBot = (userAgent: string): boolean => {
-  const botPatterns = [
-    /bot/i,
-    /crawler/i,
-    /spider/i,
-    /scraper/i,
-    /curl/i,
-    /wget/i,
-    /python/i,
-    /postman/i,
-    /axios/i,
-    /fetch/i,
-  ];
-
-  return botPatterns.some((pattern) => pattern.test(userAgent));
-};
 
 // Content validation
 const validateMessages = (messages: UIMessage[]): boolean => {
@@ -68,11 +50,6 @@ const validateMessages = (messages: UIMessage[]): boolean => {
 export async function POST(req: Request) {
   try {
     const headersList = await headers();
-    const ip =
-      headersList.get("x-forwarded-for")?.split(",")[0] ||
-      headersList.get("x-real-ip") ||
-      "127.0.0.1";
-    const userAgent = headersList.get("user-agent") || "";
     const referer = headersList.get("referer") || "";
 
     // Check referer (basic CSRF protection)
@@ -80,34 +57,26 @@ export async function POST(req: Request) {
       return new Response("Forbidden - Invalid referer", { status: 403 });
     }
 
-    // Bot detection
-    if (detectBot(userAgent)) {
-      console.log(
-        `Blocked bot request from IP: ${ip}, User-Agent: ${userAgent}`
-      );
-      return new Response("Access denied", { status: 403 });
-    }
+    // Use Arcjet for bot protection and rate limiting
+    const decision = await aj.protect(req, { requested: 1 });
 
-    // Rate limiting
-    const identifier = `chat_${ip}`;
-    const { success, limit, reset, remaining } = await chatRateLimit.limit(
-      identifier
-    );
-
-    if (!success) {
-      console.log(`Rate limit exceeded for IP: ${ip}`);
-      return new Response(
-        "Too many requests. Please wait before sending another message.",
-        {
-          status: 429,
-          headers: {
-            "X-RateLimit-Limit": limit.toString(),
-            "X-RateLimit-Remaining": remaining.toString(),
-            "X-RateLimit-Reset": new Date(reset).toISOString(),
-            "Retry-After": Math.round((reset - Date.now()) / 1000).toString(),
-          },
-        }
-      );
+    if (decision.isDenied()) {
+      if (decision.reason.isRateLimit()) {
+        console.log(`Rate limit exceeded: ${decision.reason}`);
+        return new Response(
+          "Too many requests. Please wait before sending another message.",
+          {
+            status: 429,
+            headers: getRateLimitHeaders(decision),
+          }
+        );
+      } else if (decision.reason.isBot()) {
+        console.log(`Bot detected: ${decision.reason}`);
+        return new Response("Access denied - Bot detected", { status: 403 });
+      } else {
+        console.log(`Request denied: ${decision.reason}`);
+        return new Response("Forbidden", { status: 403 });
+      }
     }
 
     // Parse and validate request body
@@ -126,7 +95,7 @@ export async function POST(req: Request) {
       messages: convertToModelMessages(messages),
       system: `Your name is Gizmo. You are the official virtual assistant for Area 51, a group of family-focused indoor play centres in Queensland, Australia. Your job is to help customers quickly and accurately with information about play, party bookings, tickets, events, food & cafe, and general enquiries — while sounding warm, playful, and professional. 
       
-      At the end of the response, propose concise next-step options with the following formats to create integrated buttons where necessary. When offering choices to users, format them as conversation buttons using {{choice:Option Name}} syntax. When directing users to external pages, use {{link:https://urlhere|Button Text}} syntax. Use the conversation button at the beginning when asking for more information (like venue choices). Use the link button when you need to direct the user to another page (like completing a booking, viewing the price, or contacting support). Don't use conversation buttons as navigation buttons (do not use buttons like 'back to VENUE menu/options').
+      At the end of the response, propose concise next-step options with the following formats to create integrated buttons. If no meaningful choice exists, end the response without buttons. Never use conversation buttons as navigation buttons (back to menu/options). When offering choices to users, format them as conversation buttons using {{choice:Option Name}} syntax. When directing users to external pages, use {{link:https://urlhere|Button Text}} syntax. Use the conversation button at the beginning when asking for more information (like venue choices). Use the link button when you need to direct the user to another page (like completing a booking, viewing the price, or contacting support). 
 
       Primary role & tone
           - Be friendly, enthusiastic, family-friendly, helpful, and a little space-themed (e.g., small playful references to "launching into fun", "galaxy"), but never gimmicky when giving practical information.
@@ -210,10 +179,11 @@ export async function POST(req: Request) {
     // Return the streaming response with rate limit headers
     const response = result.toUIMessageStreamResponse();
 
-    // Add rate limit headers to the response
-    response.headers.set("X-RateLimit-Limit", limit.toString());
-    response.headers.set("X-RateLimit-Remaining", (remaining - 1).toString());
-    response.headers.set("X-RateLimit-Reset", new Date(reset).toISOString());
+    // Add rate limit headers to the response if available
+    const rateLimitHeaders = getRateLimitHeaders(decision);
+    Object.entries(rateLimitHeaders).forEach(([key, value]) => {
+      response.headers.set(key, value);
+    });
 
     return response;
   } catch (error: unknown) {

@@ -32,11 +32,13 @@ const MarkdownWithButtons = ({
   onConversationChoice,
   onLinkClick,
   isRateLimited,
+  status,
 }: {
   children: string;
   onConversationChoice: (choice: string) => void;
   onLinkClick: (url: string) => void;
   isRateLimited: boolean;
+  status: string;
 }) => {
   // Extract and remove conversation choices from markdown
   const conversationChoiceRegex = /\{\{choice:([^}]+)\}\}/g;
@@ -81,7 +83,7 @@ const MarkdownWithButtons = ({
               variant="outline"
               size="sm"
               onClick={() => onConversationChoice(choice)}
-              disabled={isRateLimited}
+              disabled={isRateLimited || status === "submitted"}
               className={`text-xs rounded-full shadow-none ${
                 isRateLimited ? "opacity-50 cursor-not-allowed" : ""
               }`}
@@ -144,9 +146,11 @@ export default ChatBotWrapper;
 export const ChatBot = ({ onClose }: { onClose: () => void }) => {
   const [input, setInput] = useState("");
   const [isRateLimited, setIsRateLimited] = useState(false);
-  const [messageCount, setMessageCount] = useState(0);
   const [rateLimitMessage, setRateLimitMessage] = useState("");
-  const [handledErrorId, setHandledErrorId] = useState<string | null>(null);
+  const [retryAfter, setRetryAfter] = useState<number | null>(null);
+  const [rateLimitCountdown, setRateLimitCountdown] = useState<number | null>(
+    null
+  );
   const lastMessageTime = useRef(Date.now());
 
   const { messages, sendMessage, setMessages, status, error } = useChat({
@@ -164,10 +168,8 @@ export const ChatBot = ({ onClose }: { onClose: () => void }) => {
     ],
     onError: (error) => {
       console.log("Chat error:", error);
-      console.log("Error type:", typeof error);
-      console.log("Error properties:", Object.keys(error));
 
-      // Multiple ways to detect rate limiting
+      // Check for rate limiting (429 status code)
       const isRateLimit =
         (error as unknown as ErrorMessage).status === 429 ||
         (error as unknown as ErrorMessage).statusCode === 429 ||
@@ -178,15 +180,56 @@ export const ChatBot = ({ onClose }: { onClose: () => void }) => {
       if (isRateLimit) {
         console.log("Rate limit detected!");
         setIsRateLimited(true);
+
+        // Extract retry-after header if available
+        const response = (error as unknown as ErrorMessage).response;
+        if (response) {
+          const retryAfterHeader = response.headers.get("Retry-After");
+          if (retryAfterHeader) {
+            const retrySeconds = parseInt(retryAfterHeader, 10);
+            setRetryAfter(retrySeconds);
+            setRateLimitCountdown(retrySeconds);
+
+            // Start countdown timer
+            const countdownInterval = setInterval(() => {
+              setRateLimitCountdown((prev) => {
+                if (prev && prev > 1) {
+                  return prev - 1;
+                } else {
+                  clearInterval(countdownInterval);
+                  setIsRateLimited(false);
+                  setRetryAfter(null);
+                  setRateLimitCountdown(null);
+                  return null;
+                }
+              });
+            }, 1000);
+          } else {
+            // Default 10 second cooldown if no retry-after header
+            setRetryAfter(10);
+            setRateLimitCountdown(10);
+
+            setTimeout(() => {
+              setIsRateLimited(false);
+              setRetryAfter(null);
+              setRateLimitCountdown(null);
+            }, 10000);
+          }
+        } else {
+          // Fallback for errors without response object
+          setRetryAfter(10);
+          setRateLimitCountdown(10);
+
+          setTimeout(() => {
+            setIsRateLimited(false);
+            setRetryAfter(null);
+            setRateLimitCountdown(null);
+          }, 10000);
+        }
+
         setRateLimitMessage(
           "Oops! Slow down, you're sending messages too quickly."
         );
-
-        // Auto-clear after 10 seconds
-        setTimeout(() => {
-          setIsRateLimited(false);
-          setRateLimitMessage("");
-        }, 10000);
       } else {
         // Handle other errors
         setRateLimitMessage(`Error: ${error.message}`);
@@ -199,33 +242,26 @@ export const ChatBot = ({ onClose }: { onClose: () => void }) => {
     const now = Date.now();
     const timeSinceLastMessage = now - lastMessageTime.current;
 
-    // Prevent spam (minimum 2 seconds between messages)
-    if (timeSinceLastMessage < 2000) {
+    // Prevent spam (minimum 1 second between messages)
+    if (timeSinceLastMessage < 1000) {
       return;
     }
 
-    // Daily message limit
-    if (messageCount >= 20) {
-      alert("Daily message limit reached. Please try again tomorrow.");
-      return;
-    }
-
-    // Clear any previous rate limit state when sending
+    // Don't send if rate limited
     if (isRateLimited) {
-      setIsRateLimited(false);
-      setRateLimitMessage("");
-      setHandledErrorId(null);
+      return;
     }
 
     try {
       await sendMessage({ text });
-      setMessageCount((prev) => prev + 1);
       lastMessageTime.current = now;
     } catch (error) {
-      // Handle errors that might not be caught by onError
       console.log("Direct send error:", error);
+
+      // Check for rate limiting in caught errors
       const isRateLimit =
         (error as unknown as ErrorMessage).status === 429 ||
+        (error as unknown as ErrorMessage).statusCode === 429 ||
         (error as unknown as ErrorMessage).response?.status === 429 ||
         (error as unknown as ErrorMessage).message?.includes("429") ||
         (error as unknown as ErrorMessage).message
@@ -234,15 +270,22 @@ export const ChatBot = ({ onClose }: { onClose: () => void }) => {
 
       if (isRateLimit) {
         setIsRateLimited(true);
-        setRateLimitMessage("Oops! You're sending messages too quickly.");
+        setRateLimitMessage(
+          "Rate limit exceeded. Please wait before sending another message."
+        );
+
+        // Default 10 second cooldown
+        setRetryAfter(10);
+        setRateLimitCountdown(10);
 
         setTimeout(() => {
           setIsRateLimited(false);
-          setRateLimitMessage("");
+          setRetryAfter(null);
+          setRateLimitCountdown(null);
         }, 10000);
       }
     }
-  }, 1000);
+  }, 500);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -268,7 +311,8 @@ export const ChatBot = ({ onClose }: { onClose: () => void }) => {
     // Clear all error and rate limit state when resetting chat
     setIsRateLimited(false);
     setRateLimitMessage("");
-    setHandledErrorId(null);
+    setRetryAfter(null);
+    setRateLimitCountdown(null);
     setMessages([
       {
         id: "welcome",
@@ -281,6 +325,16 @@ export const ChatBot = ({ onClose }: { onClose: () => void }) => {
         ],
       },
     ]);
+  };
+
+  // Format countdown message
+  const getRateLimitMessage = () => {
+    if (rateLimitCountdown !== null && rateLimitCountdown > 0) {
+      return `Rate limit exceeded. Please wait ${rateLimitCountdown} second${
+        rateLimitCountdown !== 1 ? "s" : ""
+      }...`;
+    }
+    return rateLimitMessage || "Rate limit exceeded. Please wait...";
   };
 
   return (
@@ -301,8 +355,8 @@ export const ChatBot = ({ onClose }: { onClose: () => void }) => {
           `}
     >
       {(isRateLimited || rateLimitMessage) && (
-        <div className="text-red-700 rounded text-xs absolute bottom-16 w-full text-center z-10">
-          {rateLimitMessage || "Oops! You're sending messages too quickly."}
+        <div className="text-red-700 rounded text-xs absolute bottom-16 w-full text-center z-10 bg-red-50 px-2 py-1">
+          {getRateLimitMessage()}
         </div>
       )}
       <div className="px-1 py-2 flex flex-row justify-between items-center">
@@ -333,6 +387,7 @@ export const ChatBot = ({ onClose }: { onClose: () => void }) => {
                             onConversationChoice={handleConversationChoice}
                             onLinkClick={handleLinkClick}
                             isRateLimited={isRateLimited}
+                            status={status}
                           >
                             {part.text}
                           </MarkdownWithButtons>
@@ -370,9 +425,12 @@ export const ChatBot = ({ onClose }: { onClose: () => void }) => {
           className=""
           placeholder={
             isRateLimited
-              ? "Cooling down, please wait."
+              ? rateLimitCountdown
+                ? `Cooling down... ${rateLimitCountdown}s`
+                : "Rate limited, please wait..."
               : "Message Gizmo AI Assistant..."
           }
+          disabled={isRateLimited}
         />
         <PromptInputSubmit
           disabled={!isInputValid || isRateLimited || status === "submitted"}
