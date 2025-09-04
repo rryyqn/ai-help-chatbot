@@ -1,7 +1,12 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // hooks/useThrottle.ts
+
 import { useCallback, useRef } from "react";
 
-export const useThrottle = (callback: Function, delay: number) => {
+export const useThrottle = (
+  callback: (...args: any[]) => void,
+  delay: number
+) => {
   const lastRun = useRef(Date.now());
 
   return useCallback(
