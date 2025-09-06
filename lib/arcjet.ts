@@ -1,22 +1,29 @@
 import arcjet, { detectBot, shield, tokenBucket } from "@arcjet/next";
+import { chatbotConfig } from "./config";
 
 // Arcjet configuration for chat API protection
 export const aj = arcjet({
   key: process.env.ARCJET_KEY!, // Get your site key from https://app.arcjet.com
   rules: [
-    shield({ mode: "LIVE" }),
+    // Shield protection (configurable)
+    ...(chatbotConfig.security.enableShield ? [shield({ mode: "LIVE" })] : []),
 
-    // Bot detection - blocks all detected bots
-    detectBot({
-      mode: "LIVE",
-      allow: [],
-    }),
+    // Bot detection (configurable)
+    ...(chatbotConfig.security.enableBotDetection
+      ? [
+          detectBot({
+            mode: "LIVE",
+            allow: [...chatbotConfig.security.allowedBots],
+          }),
+        ]
+      : []),
 
+    // Token bucket rate limiting (configurable)
     tokenBucket({
       mode: "LIVE",
-      refillRate: 2, // Refill 2 tokens per interval
-      interval: 10, // Refill every 10 seconds
-      capacity: 10, // Bucket capacity of 10 tokens
+      refillRate: chatbotConfig.rateLimit.refillRate,
+      interval: chatbotConfig.rateLimit.interval,
+      capacity: chatbotConfig.rateLimit.capacity,
     }),
   ],
 });

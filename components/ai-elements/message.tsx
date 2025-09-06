@@ -2,6 +2,7 @@
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import { chatbotConfig } from "@/lib/config";
 import type { UIMessage } from "ai";
 import type { HTMLAttributes } from "react";
 
@@ -26,9 +27,12 @@ export const Message = ({
   >
     {children}
     {from !== "user" ? (
-      <Avatar aria-label="Gizmo" className="w-10 h-10">
-        <AvatarFallback>G</AvatarFallback>
-        <AvatarImage src="/gizmo-ai-avatar2.png" alt="Gizmo" />
+      <Avatar aria-label={chatbotConfig.name} className="w-10 h-10">
+        <AvatarFallback>{chatbotConfig.ui.avatarFallback}</AvatarFallback>
+        <AvatarImage
+          src={chatbotConfig.ui.avatarImage}
+          alt={chatbotConfig.name}
+        />
       </Avatar>
     ) : null}
   </div>

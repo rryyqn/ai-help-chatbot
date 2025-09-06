@@ -17,6 +17,7 @@ import {
   PromptInputSubmit,
   PromptInputTextarea,
 } from "./ai-elements/prompt-input";
+import { chatbotConfig } from "@/lib/config";
 
 type ErrorMessage = {
   error: Error;
@@ -42,29 +43,22 @@ const MarkdownWithButtons = ({
   // Extract and remove conversation choices from markdown
   const conversationChoiceRegex = /\{\{choice:([^}]+)\}\}/g;
   const linkButtonRegex = /\{\{link:([^|]+)\|([^}]+)\}\}/g;
-
   const conversationChoices: string[] = [];
   const linkButtons: { url: string; label: string }[] = [];
-
-  // Extract conversation choices
   let match;
   while ((match = conversationChoiceRegex.exec(children)) !== null) {
     conversationChoices.push(match[1].trim());
   }
-
-  // Extract link buttons
   while ((match = linkButtonRegex.exec(children)) !== null) {
     linkButtons.push({
       url: match[1].trim(),
       label: match[2].trim(),
     });
   }
-
-  // Remove the special syntax from markdown content
   const cleanMarkdown = children
     .replace(conversationChoiceRegex, "")
     .replace(linkButtonRegex, "")
-    .replace(/\n\s*\n\s*\n/g, "\n\n") // Clean up extra newlines
+    .replace(/\n\s*\n\s*\n/g, "\n\n")
     .trim();
 
   return (
@@ -72,10 +66,8 @@ const MarkdownWithButtons = ({
       <div className="prose text-sm">
         <ReactMarkdown>{cleanMarkdown}</ReactMarkdown>
       </div>
-
-      {/* Render conversation choice buttons */}
-      {conversationChoices.length > 0 && (
-        <div className="flex flex-wrap gap-2 mt-4">
+      {(conversationChoices.length > 0 || linkButtons.length > 0) && (
+        <div className="flex flex-row flex-wrap mt-2 gap-2">
           {conversationChoices.map((choice, index) => (
             <Button
               key={index}
@@ -90,12 +82,8 @@ const MarkdownWithButtons = ({
               {choice}
             </Button>
           ))}
-        </div>
-      )}
 
-      {/* Render link buttons */}
-      {linkButtons.length > 0 && (
-        <div className="flex flex-wrap gap-2 mt-4">
+          {/* Render link buttons */}
           {linkButtons.map((button, index) => (
             <Button
               key={index}
@@ -104,8 +92,8 @@ const MarkdownWithButtons = ({
               onClick={() => onLinkClick(button.url)}
               className="text-xs rounded-full shadow-none"
             >
-              <ExternalLink className="w-3 h-3 mr-1" />
               {button.label}
+              <ExternalLink className="w-3 h-3 mr-1" />
             </Button>
           ))}
         </div>
@@ -151,14 +139,12 @@ export const ChatBot = ({ onClose }: { onClose: () => void }) => {
         parts: [
           {
             type: "text",
-            text: "Hello explorer! Gizmo here, ready to help you find some out-of-this-world fun!🚀\n\nLet's start by choosing your Area 51 venue, or ask me about your questions!\n\n{{choice:Underwood}}\n{{choice:Mt Gravatt}}\n{{choice:Redcliffe}}\n{{choice:Helensvale}}",
+            text: chatbotConfig.welcomeMessage,
           },
         ],
       },
     ],
     onError: (error) => {
-      console.log("Chat error:", error);
-
       // Check for rate limiting (429 status code)
       const isRateLimit =
         (error as unknown as ErrorMessage).status === 429 ||
@@ -168,7 +154,6 @@ export const ChatBot = ({ onClose }: { onClose: () => void }) => {
         error.message?.toLowerCase().includes("too many requests");
 
       if (isRateLimit) {
-        console.log("Rate limit detected!");
         setIsRateLimited(true);
 
         // Extract retry-after header if available
@@ -211,9 +196,7 @@ export const ChatBot = ({ onClose }: { onClose: () => void }) => {
           }, 10000);
         }
 
-        setRateLimitMessage(
-          "Oops! Slow down, you're sending messages too quickly."
-        );
+        setRateLimitMessage("");
       } else {
         // Handle other errors
         setRateLimitMessage(`Error: ${error.message}`);
@@ -226,8 +209,8 @@ export const ChatBot = ({ onClose }: { onClose: () => void }) => {
     const now = Date.now();
     const timeSinceLastMessage = now - lastMessageTime.current;
 
-    // Prevent spam (minimum 1 second between messages)
-    if (timeSinceLastMessage < 1000) {
+    // Prevent spam (minimum time between messages)
+    if (timeSinceLastMessage < chatbotConfig.rateLimit.minTimeBetweenMessages) {
       return;
     }
 
@@ -271,13 +254,19 @@ export const ChatBot = ({ onClose }: { onClose: () => void }) => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (input.trim() && !isRateLimited && input.length <= 1000) {
+    if (
+      input.trim() &&
+      !isRateLimited &&
+      input.length <= chatbotConfig.rateLimit.maxMessageLength
+    ) {
       sendMessageWithThrottle(input);
       setInput("");
     }
   };
 
-  const isInputValid = input.length <= 1000 && input.trim().length > 0;
+  const isInputValid =
+    input.length <= chatbotConfig.rateLimit.maxMessageLength &&
+    input.trim().length > 0;
 
   const handleConversationChoice = (choice: string) => {
     if (!isRateLimited) {
@@ -301,7 +290,7 @@ export const ChatBot = ({ onClose }: { onClose: () => void }) => {
         parts: [
           {
             type: "text",
-            text: "Hello explorer! Gizmo here, ready to help you find some out-of-this-world fun!🚀\n\nLet's start by choosing your Area 51 venue, or ask me about your questions!\n\n{{choice:Underwood}}\n{{choice:Mt Gravatt}}\n{{choice:Redcliffe}}\n{{choice:Helensvale}}",
+            text: chatbotConfig.welcomeMessage,
           },
         ],
       },
@@ -326,12 +315,8 @@ export const ChatBot = ({ onClose }: { onClose: () => void }) => {
       transition={{ type: "spring", stiffness: 400, damping: 30 }}
       className={`
             justify-between flex flex-col
-            fixed z-20 bg-white
-            
-            /* Mobile: Full screen */
+            fixed z-20 bg-white 
             inset-0 w-screen h-screen rounded-none border-0
-            
-            /* Desktop: Bottom right panel */
             md:max-w-100 md:w-full md:h-110 md:bottom-20 md:right-4 md:rounded-sm md:border md:inset-auto
           `}
     >
@@ -340,9 +325,9 @@ export const ChatBot = ({ onClose }: { onClose: () => void }) => {
           {getRateLimitMessage()}
         </div>
       )}
-      <div className="px-1 py-2 flex flex-row justify-between items-center">
-        <div className="flex-col pl-4">
-          <p className="font-bold">Area 51 Gizmo AI Assistant</p>
+      <div className="px-2 py-2 flex flex-row justify-between items-center">
+        <div className="flex-col pl-2">
+          <p className="font-bold">{chatbotConfig.ui.windowTitle}</p>
         </div>
         <div>
           <Button onClick={clearMessages} size="icon" variant="ghost">
@@ -406,10 +391,8 @@ export const ChatBot = ({ onClose }: { onClose: () => void }) => {
           className=""
           placeholder={
             isRateLimited
-              ? rateLimitCountdown
-                ? `Cooling down... ${rateLimitCountdown}s`
-                : "Rate limited, please wait..."
-              : "Message Gizmo AI Assistant..."
+              ? "Rate limited, please wait..."
+              : chatbotConfig.ui.inputPlaceholder
           }
           disabled={isRateLimited}
         />

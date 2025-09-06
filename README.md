@@ -1,87 +1,206 @@
-# AI Chatbot with Arcjet Protection
+# AI Chatbot Template
 
-A Next.js AI chatbot application with advanced security features powered by Arcjet for rate limiting and bot protection.
+A modern, customizable AI chatbot built with Next.js, Vercel AI SDK, and Google Gemini. Features include rate limiting, bot protection, and a beautiful UI.
 
-## Features
+## 🚀 Quick Start
 
-- 🤖 AI-powered chat interface using Google's Gemini model
-- 🛡️ **Arcjet-powered security** with rate limiting and bot protection
-- 🔒 CSRF protection and content validation
-- 📱 Responsive UI with modern design
-- ⚡ Real-time streaming responses
-
-## Security Features
-
-This application uses [Arcjet](https://arcjet.com) for comprehensive API protection:
-
-- **Rate Limiting**: Sliding window and token bucket algorithms
-- **Bot Protection**: Advanced bot detection with configurable allow/deny lists
-- **Shield WAF**: Protection against common web attacks
-- **Real-time Monitoring**: Detailed logging and analytics
-
-## Environment Variables
-
-Create a `.env.local` file with the following variables:
+### 1. Clone and Install
 
 ```bash
-# Google AI SDK
-GOOGLE_GENERATIVE_AI_API_KEY=your_google_api_key
-
-# Arcjet (Required for rate limiting and bot protection)
-ARCJET_KEY=your_arcjet_site_key
-
-# App Configuration
-NEXT_PUBLIC_APP_URL=http://localhost:3000
+git clone <your-repo-url>
+cd ai-chatbot-template
+pnpm install
 ```
 
-### Getting Arcjet Key
+### 2. Environment Setup
 
-1. Sign up at [https://app.arcjet.com](https://app.arcjet.com)
-2. Create a new site
-3. Copy your site key to `ARCJET_KEY`
-
-## Installation
+Copy the example environment file and fill in your API keys:
 
 ```bash
-# Install dependencies
-pnpm install
+cp env.example .env.local
+```
 
-# Run development server
+Required environment variables:
+- `ARCJET_KEY` - Get from [Arcjet Dashboard](https://app.arcjet.com)
+- `GOOGLE_GENERATIVE_AI_API_KEY` - Get from [Google AI Studio](https://aistudio.google.com/app/apikey)
+
+### 3. Run Development Server
+
+```bash
 pnpm dev
 ```
 
-## Rate Limiting Configuration
+Visit `http://localhost:3000` to see your chatbot!
 
-The application uses multiple rate limiting strategies:
+## ⚙️ Customization
 
-- **Sliding Window**: 8 requests per 30 seconds
-- **Token Bucket**: 10 tokens capacity, 2 tokens refill per 10 seconds
+### Basic Configuration
 
-## Bot Protection
+Edit `lib/config.ts` to customize your chatbot:
 
-Arcjet automatically detects and blocks:
-- Automated bots and scrapers
-- Malicious user agents
-- Suspicious request patterns
-
-Search engine bots (Google, Bing) are allowed by default.
-
-## API Endpoints
-
-- `POST /api/chat` - Main chat endpoint with Arcjet protection
-
-## Testing
-
-Test the rate limiting with curl:
-
-```bash
-## This should return 403 (bot detected)
-curl -v -H "Content-Type: application/json" \
-  -H "Referer: http://localhost:3000" \
-  -d '{"messages":[]}' \
-  http://localhost:3000/api/chat
+```typescript
+export const chatbotConfig = {
+  // Basic info
+  name: "Your AI Assistant",
+  
+  // Welcome message (supports {{choice:}} and {{link:}} syntax)
+  welcomeMessage: "Hello! How can I help you today?",
+  
+  // UI customization
+  ui: {
+    windowTitle: "Your Assistant",
+    inputPlaceholder: "Type your message...",
+    avatarImage: "/your-avatar.png",
+    avatarFallback: "AI",
+  },
+  
+  // Rate limiting
+  rateLimit: {
+    capacity: 10,        // Max requests in burst
+    refillRate: 2,       // Tokens refilled per interval
+    interval: 10,        // Refill interval in seconds
+    minTimeBetweenMessages: 1000, // Min ms between messages
+    maxMessageLength: 1000,       // Max characters per message
+  },
+  
+  // AI configuration
+  api: {
+    model: "gemini-2.5-flash-lite",
+    systemPrompt: "You are a helpful AI assistant...",
+  },
+  
+  // Security settings
+  security: {
+    enableBotDetection: true,
+    enableShield: true,
+    allowedBots: [], // Empty array blocks all bots
+  },
+};
 ```
 
-## Deployment
+### Advanced Customization
 
-The application is ready for deployment on Vercel, Netlify, or any Next.js-compatible platform. Make sure to set all required environment variables in your deployment environment.
+#### Custom System Prompt
+
+Modify the `systemPrompt` in `lib/config.ts` to change how your AI behaves:
+
+```typescript
+systemPrompt: `You are a customer service assistant for [Your Company]. 
+Be helpful, professional, and friendly. When appropriate, use:
+- {{choice:Option Name}} for clickable choices
+- {{link:https://url.com|Button Text}} for external links`
+```
+
+#### Rate Limiting
+
+Adjust rate limiting in `lib/config.ts`:
+
+- **capacity**: Maximum requests allowed in a burst
+- **refillRate**: How many tokens are added per interval
+- **interval**: How often tokens are refilled (in seconds)
+
+#### Security Settings
+
+Configure security features:
+
+- **enableBotDetection**: Block automated bots
+- **enableShield**: Protect against common attacks
+- **allowedBots**: Specify which bot categories to allow
+
+## 🎨 UI Customization
+
+### Styling
+
+The chatbot uses Tailwind CSS. Key styling files:
+- `app/globals.css` - Global styles and theme
+- `components/ui/` - Reusable UI components
+
+### Avatar
+
+Replace `/public/ai-avatar.png` with your own avatar image, or update the path in `lib/config.ts`.
+
+### Colors and Theme
+
+Modify the CSS variables in `app/globals.css` to change colors:
+
+```css
+:root {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --primary: oklch(0.7 0.15 200);
+  /* ... more variables */
+}
+```
+
+## 🔧 Technical Details
+
+### Architecture
+
+- **Frontend**: Next.js 15 with React 19
+- **AI**: Vercel AI SDK with Google Gemini
+- **Security**: Arcjet for rate limiting and bot protection
+- **Styling**: Tailwind CSS with custom design system
+- **Animations**: Framer Motion
+
+### Key Features
+
+- ✅ Real-time streaming responses
+- ✅ Rate limiting and bot protection
+- ✅ Mobile-responsive design
+- ✅ Customizable UI and behavior
+- ✅ TypeScript support
+- ✅ Error handling and retry logic
+
+### File Structure
+
+```
+├── app/
+│   ├── api/chat/route.ts    # Chat API endpoint
+│   ├── page.tsx             # Main page
+│   └── globals.css          # Global styles
+├── components/
+│   ├── ai-elements/         # Chat-specific components
+│   ├── ui/                  # Reusable UI components
+│   └── Chatbot.tsx          # Main chatbot component
+├── lib/
+│   ├── config.ts            # Configuration file
+│   ├── arcjet.ts            # Security configuration
+│   └── utils.ts             # Utility functions
+└── public/                  # Static assets
+```
+
+## 🚀 Deployment
+
+### Vercel (Recommended)
+
+1. Push your code to GitHub
+2. Connect your repository to Vercel
+3. Add environment variables in Vercel dashboard
+4. Deploy!
+
+### Other Platforms
+
+The app works on any platform that supports Next.js:
+- Netlify
+- Railway
+- Render
+- DigitalOcean App Platform
+
+## 📝 License
+
+MIT License - feel free to use this template for your projects!
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## 📞 Support
+
+If you have questions or need help:
+- Open an issue on GitHub
+- Check the documentation
+- Review the example configuration
+
+---
+
+**Happy coding!** 🎉
