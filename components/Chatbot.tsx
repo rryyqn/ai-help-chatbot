@@ -18,6 +18,14 @@ import {
   PromptInputTextarea,
 } from "./ai-elements/prompt-input";
 
+type ErrorMessage = {
+  error: Error;
+  message: string;
+  status: number;
+  statusCode: number;
+  response: Response;
+};
+
 const MarkdownWithButtons = ({
   children,
   onConversationChoice,
@@ -122,14 +130,6 @@ const ChatBotWrapper = () => {
       </AnimatePresence>
     </div>
   );
-};
-
-type ErrorMessage = {
-  error: Error;
-  message: string;
-  status: number;
-  statusCode: number;
-  response: Response;
 };
 
 export default ChatBotWrapper;
