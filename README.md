@@ -7,22 +7,19 @@ A modern, customizable AI chatbot built with Next.js, Vercel AI SDK, and Google 
 ### 1. Clone and Install
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/rryyqn/ai-chatbot.git
 cd ai-chatbot-template
 pnpm install
 ```
 
 ### 2. Environment Setup
 
-Copy the example environment file and fill in your API keys:
+Create a .env.local and add your API keys:
 
-```bash
-cp env.example .env.local
 ```
-
-Required environment variables:
 - `ARCJET_KEY` - Get from [Arcjet Dashboard](https://app.arcjet.com)
 - `GOOGLE_GENERATIVE_AI_API_KEY` - Get from [Google AI Studio](https://aistudio.google.com/app/apikey)
+```
 
 ### 3. Run Development Server
 
@@ -56,7 +53,7 @@ export const chatbotConfig = {
   
   // Rate limiting
   rateLimit: {
-    capacity: 10,        // Max requests in burst
+    capacity: 10,        // Bucket maximum capacity
     refillRate: 2,       // Tokens refilled per interval
     interval: 10,        // Refill interval in seconds
     minTimeBetweenMessages: 1000, // Min ms between messages
@@ -114,23 +111,11 @@ Configure security features:
 The chatbot uses Tailwind CSS. Key styling files:
 - `app/globals.css` - Global styles and theme
 - `components/ui/` - Reusable UI components
+- `components/Chatbot.tsx` - Direct chatbot styles
 
 ### Avatar
 
-Replace `/public/ai-avatar.png` with your own avatar image, or update the path in `lib/config.ts`.
-
-### Colors and Theme
-
-Modify the CSS variables in `app/globals.css` to change colors:
-
-```css
-:root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --primary: oklch(0.7 0.15 200);
-  /* ... more variables */
-}
-```
+Place your avatar image in the public folder and update the path in in `lib/config.ts`.
 
 ## 🔧 Technical Details
 
@@ -166,7 +151,7 @@ Modify the CSS variables in `app/globals.css` to change colors:
 │   ├── config.ts            # Configuration file
 │   ├── arcjet.ts            # Security configuration
 │   └── utils.ts             # Utility functions
-└── public/                  # Static assets
+└── public/                  # Static assets (AI avatar image)
 ```
 
 ## 🚀 Deployment
@@ -198,7 +183,6 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 If you have questions or need help:
 - Open an issue on GitHub
-- Check the documentation
 - Review the example configuration
 
 ---
