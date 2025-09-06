@@ -16,10 +16,8 @@ pnpm install
 
 Create a .env.local and add your API keys:
 
-```
 - `ARCJET_KEY` - Get from [Arcjet Dashboard](https://app.arcjet.com)
 - `GOOGLE_GENERATIVE_AI_API_KEY` - Get from [Google AI Studio](https://aistudio.google.com/app/apikey)
-```
 
 ### 3. Run Development Server
 
