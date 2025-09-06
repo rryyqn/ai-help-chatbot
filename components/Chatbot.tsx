@@ -1,6 +1,5 @@
 "use client";
 import { useRef, useState } from "react";
-import React from "react";
 import { useChat } from "@ai-sdk/react";
 import {
   Conversation,
@@ -27,81 +26,6 @@ type ErrorMessage = {
   response: Response;
 };
 
-const MarkdownWithButtons = ({
-  children,
-  onConversationChoice,
-  onLinkClick,
-  isRateLimited,
-  status,
-}: {
-  children: string;
-  onConversationChoice: (choice: string) => void;
-  onLinkClick: (url: string) => void;
-  isRateLimited: boolean;
-  status: string;
-}) => {
-  // Extract and remove conversation choices from markdown
-  const conversationChoiceRegex = /\{\{choice:([^}]+)\}\}/g;
-  const linkButtonRegex = /\{\{link:([^|]+)\|([^}]+)\}\}/g;
-  const conversationChoices: string[] = [];
-  const linkButtons: { url: string; label: string }[] = [];
-  let match;
-  while ((match = conversationChoiceRegex.exec(children)) !== null) {
-    conversationChoices.push(match[1].trim());
-  }
-  while ((match = linkButtonRegex.exec(children)) !== null) {
-    linkButtons.push({
-      url: match[1].trim(),
-      label: match[2].trim(),
-    });
-  }
-  const cleanMarkdown = children
-    .replace(conversationChoiceRegex, "")
-    .replace(linkButtonRegex, "")
-    .replace(/\n\s*\n\s*\n/g, "\n\n")
-    .trim();
-
-  return (
-    <div>
-      <div className="prose text-sm">
-        <ReactMarkdown>{cleanMarkdown}</ReactMarkdown>
-      </div>
-      {(conversationChoices.length > 0 || linkButtons.length > 0) && (
-        <div className="flex flex-row flex-wrap mt-2 gap-2">
-          {conversationChoices.map((choice, index) => (
-            <Button
-              key={index}
-              variant="outline"
-              size="sm"
-              onClick={() => onConversationChoice(choice)}
-              disabled={isRateLimited || status === "submitted"}
-              className={`text-xs rounded-full shadow-none ${
-                isRateLimited ? "opacity-50 cursor-not-allowed" : ""
-              }`}
-            >
-              {choice}
-            </Button>
-          ))}
-
-          {/* Render link buttons */}
-          {linkButtons.map((button, index) => (
-            <Button
-              key={index}
-              variant="default"
-              size="sm"
-              onClick={() => onLinkClick(button.url)}
-              className="text-xs rounded-full shadow-none"
-            >
-              {button.label}
-              <ExternalLink className="w-3 h-3 mr-1" />
-            </Button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
-
 const ChatBotWrapper = () => {
   const [isOpen, setIsOpen] = useState(false);
   return (
@@ -125,7 +49,6 @@ export default ChatBotWrapper;
 export const ChatBot = ({ onClose }: { onClose: () => void }) => {
   const [input, setInput] = useState("");
   const [isRateLimited, setIsRateLimited] = useState(false);
-  const [rateLimitMessage, setRateLimitMessage] = useState("");
   const [rateLimitCountdown, setRateLimitCountdown] = useState<number | null>(
     null
   );
@@ -155,52 +78,16 @@ export const ChatBot = ({ onClose }: { onClose: () => void }) => {
 
       if (isRateLimit) {
         setIsRateLimited(true);
+        setRateLimitCountdown(chatbotConfig.rateLimit.interval);
 
-        // Extract retry-after header if available
-        const response = (error as unknown as ErrorMessage).response;
-        if (response) {
-          const retryAfterHeader = response.headers.get("Retry-After");
-          if (retryAfterHeader) {
-            const retrySeconds = parseInt(retryAfterHeader, 10);
-            setRateLimitCountdown(retrySeconds);
-
-            // Start countdown timer
-            const countdownInterval = setInterval(() => {
-              setRateLimitCountdown((prev) => {
-                if (prev && prev > 1) {
-                  return prev - 1;
-                } else {
-                  clearInterval(countdownInterval);
-                  setIsRateLimited(false);
-                  setRateLimitCountdown(null);
-                  return null;
-                }
-              });
-            }, 1000);
-          } else {
-            // Default 10 second cooldown if no retry-after header
-            setRateLimitCountdown(10);
-
-            setTimeout(() => {
-              setIsRateLimited(false);
-              setRateLimitCountdown(null);
-            }, 10000);
-          }
-        } else {
-          // Fallback for errors without response object
-          setRateLimitCountdown(10);
-
-          setTimeout(() => {
-            setIsRateLimited(false);
-            setRateLimitCountdown(null);
-          }, 10000);
-        }
-
-        setRateLimitMessage("");
+        setTimeout(() => {
+          setIsRateLimited(false);
+          setRateLimitCountdown(null);
+        }, chatbotConfig.rateLimit.interval * 1000);
       } else {
         // Handle other errors
-        setRateLimitMessage(`Error: ${error.message}`);
-        setTimeout(() => setRateLimitMessage(""), 5000);
+        setRateLimitCountdown(5);
+        setTimeout(() => setRateLimitCountdown(null), 5000);
       }
     },
   });
@@ -208,48 +95,16 @@ export const ChatBot = ({ onClose }: { onClose: () => void }) => {
   const sendMessageWithThrottle = async (text: string) => {
     const now = Date.now();
     const timeSinceLastMessage = now - lastMessageTime.current;
-
     // Prevent spam (minimum time between messages)
     if (timeSinceLastMessage < chatbotConfig.rateLimit.minTimeBetweenMessages) {
       return;
     }
-
     // Don't send if rate limited
     if (isRateLimited) {
       return;
     }
-
-    try {
-      await sendMessage({ text });
-      lastMessageTime.current = now;
-    } catch (error) {
-      console.log("Direct send error:", error);
-
-      // Check for rate limiting in caught errors
-      const isRateLimit =
-        (error as unknown as ErrorMessage).status === 429 ||
-        (error as unknown as ErrorMessage).statusCode === 429 ||
-        (error as unknown as ErrorMessage).response?.status === 429 ||
-        (error as unknown as ErrorMessage).message?.includes("429") ||
-        (error as unknown as ErrorMessage).message
-          ?.toLowerCase()
-          .includes("rate limit");
-
-      if (isRateLimit) {
-        setIsRateLimited(true);
-        setRateLimitMessage(
-          "Rate limit exceeded. Please wait before sending another message."
-        );
-
-        // Default 10 second cooldown
-        setRateLimitCountdown(10);
-
-        setTimeout(() => {
-          setIsRateLimited(false);
-          setRateLimitCountdown(null);
-        }, 10000);
-      }
-    }
+    lastMessageTime.current = now;
+    await sendMessage({ text });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -281,7 +136,6 @@ export const ChatBot = ({ onClose }: { onClose: () => void }) => {
   const clearMessages = () => {
     // Clear all error and rate limit state when resetting chat
     setIsRateLimited(false);
-    setRateLimitMessage("");
     setRateLimitCountdown(null);
     setMessages([
       {
@@ -304,15 +158,15 @@ export const ChatBot = ({ onClose }: { onClose: () => void }) => {
         rateLimitCountdown !== 1 ? "s" : ""
       }...`;
     }
-    return rateLimitMessage || "Rate limit exceeded. Please wait...";
+    return "Rate limit exceeded. Please wait...";
   };
 
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.8 }}
+      initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.8 }}
-      transition={{ type: "spring", stiffness: 400, damping: 30 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      transition={{ type: "spring", stiffness: 500, damping: 30 }}
       className={`
             justify-between flex flex-col
             fixed z-20 bg-white 
@@ -320,7 +174,7 @@ export const ChatBot = ({ onClose }: { onClose: () => void }) => {
             md:max-w-100 md:w-full md:h-110 md:bottom-20 md:right-4 md:rounded-sm md:border md:inset-auto
           `}
     >
-      {(isRateLimited || rateLimitMessage) && (
+      {isRateLimited && (
         <div className="text-red-700 rounded text-xs absolute bottom-16 w-full text-center z-10 bg-red-50 px-2 py-1">
           {getRateLimitMessage()}
         </div>
@@ -403,5 +257,80 @@ export const ChatBot = ({ onClose }: { onClose: () => void }) => {
         />
       </PromptInput>
     </motion.div>
+  );
+};
+
+const MarkdownWithButtons = ({
+  children,
+  onConversationChoice,
+  onLinkClick,
+  isRateLimited,
+  status,
+}: {
+  children: string;
+  onConversationChoice: (choice: string) => void;
+  onLinkClick: (url: string) => void;
+  isRateLimited: boolean;
+  status: string;
+}) => {
+  // Extract and remove conversation choices from markdown
+  const conversationChoiceRegex = /\{\{choice:([^}]+)\}\}/g;
+  const linkButtonRegex = /\{\{link:([^|]+)\|([^}]+)\}\}/g;
+  const conversationChoices: string[] = [];
+  const linkButtons: { url: string; label: string }[] = [];
+  let match;
+  while ((match = conversationChoiceRegex.exec(children)) !== null) {
+    conversationChoices.push(match[1].trim());
+  }
+  while ((match = linkButtonRegex.exec(children)) !== null) {
+    linkButtons.push({
+      url: match[1].trim(),
+      label: match[2].trim(),
+    });
+  }
+  const cleanMarkdown = children
+    .replace(conversationChoiceRegex, "")
+    .replace(linkButtonRegex, "")
+    .replace(/\n\s*\n\s*\n/g, "\n\n")
+    .trim();
+
+  return (
+    <div>
+      <div className="prose text-sm">
+        <ReactMarkdown>{cleanMarkdown}</ReactMarkdown>
+      </div>
+      {(conversationChoices.length > 0 || linkButtons.length > 0) && (
+        <div className="flex flex-row flex-wrap mt-2 gap-2">
+          {conversationChoices.map((choice, index) => (
+            <Button
+              key={index}
+              variant="outline"
+              size="sm"
+              onClick={() => onConversationChoice(choice)}
+              disabled={isRateLimited || status === "submitted"}
+              className={`text-xs rounded-full shadow-none ${
+                isRateLimited ? "opacity-50 cursor-not-allowed" : ""
+              }`}
+            >
+              {choice}
+            </Button>
+          ))}
+
+          {/* Render link buttons */}
+          {linkButtons.map((button, index) => (
+            <Button
+              key={index}
+              variant="default"
+              size="sm"
+              onClick={() => onLinkClick(button.url)}
+              className="text-xs rounded-full shadow-none"
+            >
+              {button.label}
+              <ExternalLink className="w-3 h-3 mr-1" />
+            </Button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 };

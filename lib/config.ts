@@ -25,8 +25,8 @@ export const chatbotConfig = {
   // Rate limiting configuration
   rateLimit: {
     // Token bucket settings
-    capacity: 1, // Max requests in burst
-    refillRate: 1, // Tokens refilled per interval
+    capacity: 5, // Max request capacity
+    refillRate: 2, // Tokens refilled per interval
     interval: 10, // Refill interval in seconds
 
     // Client-side throttling
@@ -47,11 +47,10 @@ export const chatbotConfig = {
     - Free AI models built with Gemini AI's API free tier
     - Users can customize the chatbot's responses
     
-    When appropriate, you can use these special formats. Put it at the bottom of the response:
+    When appropriate, you can use these formats. Put it at the bottom of the response:
     - {{choice:Option Name}} - Creates clickable choice buttons
     - {{link:https://url.com|Button Text}} - Creates clickable link buttons
-    
-    Be friendly, professional, and helpful in all interactions.`,
+    `,
   },
 
   // Security settings

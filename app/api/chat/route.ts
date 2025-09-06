@@ -63,7 +63,6 @@ export async function POST(req: Request) {
 
     if (decision.isDenied()) {
       if (decision.reason.isRateLimit()) {
-        console.log(`Rate limit exceeded: ${decision.reason}`);
         return new Response(
           "Too many requests. Please wait before sending another message.",
           {
@@ -72,10 +71,8 @@ export async function POST(req: Request) {
           }
         );
       } else if (decision.reason.isBot()) {
-        console.log(`Bot detected: ${decision.reason}`);
         return new Response("Access denied - Bot detected", { status: 403 });
       } else {
-        console.log(`Request denied: ${decision.reason}`);
         return new Response("Forbidden", { status: 403 });
       }
     }
