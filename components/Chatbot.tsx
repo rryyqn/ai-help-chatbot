@@ -11,21 +11,12 @@ import { Message, MessageContent } from "./ai-elements/message";
 import ReactMarkdown from "react-markdown";
 import { Button } from "./ui/button";
 import { AnimatePresence, motion } from "motion/react";
-import {
-  ExternalLink,
-  Loader,
-  MessageSquareIcon,
-  RefreshCw,
-  RotateCw,
-  X,
-} from "lucide-react";
+import { ExternalLink, MessageSquareIcon, RotateCw, X } from "lucide-react";
 import {
   PromptInput,
   PromptInputSubmit,
   PromptInputTextarea,
-  PromptInputToolbar,
 } from "./ai-elements/prompt-input";
-import { useThrottle } from "@/hooks/useThrottle";
 
 const MarkdownWithButtons = ({
   children,
@@ -147,13 +138,12 @@ export const ChatBot = ({ onClose }: { onClose: () => void }) => {
   const [input, setInput] = useState("");
   const [isRateLimited, setIsRateLimited] = useState(false);
   const [rateLimitMessage, setRateLimitMessage] = useState("");
-  const [retryAfter, setRetryAfter] = useState<number | null>(null);
   const [rateLimitCountdown, setRateLimitCountdown] = useState<number | null>(
     null
   );
   const lastMessageTime = useRef(Date.now());
 
-  const { messages, sendMessage, setMessages, status, error } = useChat({
+  const { messages, sendMessage, setMessages, status } = useChat({
     messages: [
       {
         id: "welcome",
@@ -187,7 +177,6 @@ export const ChatBot = ({ onClose }: { onClose: () => void }) => {
           const retryAfterHeader = response.headers.get("Retry-After");
           if (retryAfterHeader) {
             const retrySeconds = parseInt(retryAfterHeader, 10);
-            setRetryAfter(retrySeconds);
             setRateLimitCountdown(retrySeconds);
 
             // Start countdown timer
@@ -198,7 +187,6 @@ export const ChatBot = ({ onClose }: { onClose: () => void }) => {
                 } else {
                   clearInterval(countdownInterval);
                   setIsRateLimited(false);
-                  setRetryAfter(null);
                   setRateLimitCountdown(null);
                   return null;
                 }
@@ -206,23 +194,19 @@ export const ChatBot = ({ onClose }: { onClose: () => void }) => {
             }, 1000);
           } else {
             // Default 10 second cooldown if no retry-after header
-            setRetryAfter(10);
             setRateLimitCountdown(10);
 
             setTimeout(() => {
               setIsRateLimited(false);
-              setRetryAfter(null);
               setRateLimitCountdown(null);
             }, 10000);
           }
         } else {
           // Fallback for errors without response object
-          setRetryAfter(10);
           setRateLimitCountdown(10);
 
           setTimeout(() => {
             setIsRateLimited(false);
-            setRetryAfter(null);
             setRateLimitCountdown(null);
           }, 10000);
         }
@@ -238,7 +222,7 @@ export const ChatBot = ({ onClose }: { onClose: () => void }) => {
     },
   });
 
-  const throttledSendMessage = useThrottle(async (text: string) => {
+  const sendMessageWithThrottle = async (text: string) => {
     const now = Date.now();
     const timeSinceLastMessage = now - lastMessageTime.current;
 
@@ -275,22 +259,20 @@ export const ChatBot = ({ onClose }: { onClose: () => void }) => {
         );
 
         // Default 10 second cooldown
-        setRetryAfter(10);
         setRateLimitCountdown(10);
 
         setTimeout(() => {
           setIsRateLimited(false);
-          setRetryAfter(null);
           setRateLimitCountdown(null);
         }, 10000);
       }
     }
-  }, 500);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (input.trim() && !isRateLimited && input.length <= 1000) {
-      throttledSendMessage(input);
+      sendMessageWithThrottle(input);
       setInput("");
     }
   };
@@ -299,7 +281,7 @@ export const ChatBot = ({ onClose }: { onClose: () => void }) => {
 
   const handleConversationChoice = (choice: string) => {
     if (!isRateLimited) {
-      throttledSendMessage(choice);
+      sendMessageWithThrottle(choice);
     }
   };
 
@@ -311,7 +293,6 @@ export const ChatBot = ({ onClose }: { onClose: () => void }) => {
     // Clear all error and rate limit state when resetting chat
     setIsRateLimited(false);
     setRateLimitMessage("");
-    setRetryAfter(null);
     setRateLimitCountdown(null);
     setMessages([
       {
